@@ -20,7 +20,7 @@ analogue of converting every image upload to a sane JPEG.
 ```typescript
 import { transcode } from 'ffmpeg-native';
 
-// returns a normalized MP4 Buffer (defaults: 720p cap, derived bitrate, faststart)
+// returns a normalized MP4 Buffer (defaults: 1280×720 box, derived bitrate, faststart)
 const mp4 = await transcode(inputBuffer);
 
 // or write straight to a file path (skips the in-memory result)
@@ -39,14 +39,14 @@ const out = await transcode('/tmp/upload.mov', { maxHeight: 1080, videoBitrate: 
 
 #### `TranscodeOptions`
 
-| Option         | Type      | Default  | Description                                                            |
-| -------------- | --------- | -------- | ---------------------------------------------------------------------- |
-| `maxHeight`    | `number`  | `720`    | Cap output height (aspect ratio preserved, never upscaled). `0` = keep |
-| `maxWidth`     | `number`  | `0`      | Cap output width; with `maxHeight` the video fits within the box       |
-| `videoBitrate` | `number`  | derived  | Target H.264 bitrate (bits/s); derived from resolution when omitted    |
-| `audioBitrate` | `number`  | `128000` | Target AAC bitrate (bits/s)                                            |
-| `faststart`    | `boolean` | `true`   | Move the `moov` atom to the front for progressive playback             |
-| `output`       | `string`  | —        | Write to this path instead of returning a Buffer                       |
+| Option         | Type      | Default  | Description                                                                 |
+| -------------- | --------- | -------- | --------------------------------------------------------------------------- |
+| `maxHeight`    | `number`  | `720`    | Cap output height (aspect ratio preserved, never upscaled). `0` = keep      |
+| `maxWidth`     | `number`  | `1280`   | Cap output width; with `maxHeight` the video fits a 1280×720 box. `0` = off |
+| `videoBitrate` | `number`  | derived  | Target H.264 bitrate (bits/s); derived from resolution when omitted         |
+| `audioBitrate` | `number`  | `128000` | Target AAC bitrate (bits/s)                                                 |
+| `faststart`    | `boolean` | `true`   | Move the `moov` atom to the front for progressive playback                  |
+| `output`       | `string`  | —        | Write to this path instead of returning a Buffer                            |
 
 ### Errors
 

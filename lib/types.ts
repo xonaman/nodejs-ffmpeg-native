@@ -8,7 +8,8 @@ export interface TranscodeOptions {
   /**
    * Cap the output width in pixels. Combined with `maxHeight`, the video is
    * scaled down to fit within the box (aspect ratio preserved, never upscaled).
-   * Default: `0` (no width cap; width follows from `maxHeight`).
+   * Default: 1280 (a 1280×720 box with the default `maxHeight`). Set to `0` to
+   * remove the width cap. Raise both for portrait sources that need more height.
    */
   readonly maxWidth?: number;
   /**

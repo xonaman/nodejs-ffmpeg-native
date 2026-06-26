@@ -26,9 +26,9 @@ type VideoInput = Buffer | string;
  *
  * The output is always `yuv420p` H.264 with a relocated `moov` atom
  * (`+faststart`) so it plays in browsers and starts before the full download.
- * By default the video is scaled down to at most 720p (aspect ratio preserved,
- * never upscaled) at a bitrate derived from the output resolution. Audio is
- * re-encoded to AAC.
+ * By default the video is scaled down to fit within a 1280×720 box (aspect
+ * ratio preserved, never upscaled) at a bitrate derived from the output
+ * resolution. Audio is re-encoded to AAC.
  *
  * Pass `options.output` to write straight to a file path and skip the
  * in-memory result buffer.
