@@ -85,6 +85,7 @@
               "-lpthread",
               "-ldl",
               "-static-libstdc++",
+              "-Wl,-Bsymbolic",
               "-Wl,--gc-sections",
               "-Wl,-S"
             ]
