@@ -8,6 +8,9 @@
 // defaults already resolved by the caller.
 struct TranscodeOptions {
   int maxHeight = 720;
+  // Cap output width in pixels (0 = no width cap). Combined with maxHeight, the
+  // video is scaled to fit within the box; aspect ratio is preserved.
+  int maxWidth = 0;
   // Target H.264 bitrate in bits/s. 0 = derive from output resolution/frame rate.
   int64_t videoBitrate = 0;
   int audioBitrate = 128000;

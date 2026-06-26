@@ -2,6 +2,7 @@
 
 #include "io_buffer.h"
 
+#include <algorithm>
 #include <cmath>
 #include <string>
 
@@ -181,12 +182,15 @@ TranscodeResult RunTranscode(const uint8_t *inData, size_t inSize, const std::st
     result.error = makeError("INPUT", "input video has invalid dimensions");
     return result;
   }
-  int outW = inW;
-  int outH = inH;
-  if (opts.maxHeight > 0 && inH > opts.maxHeight) {
-    outH = opts.maxHeight;
-    outW = static_cast<int>(std::lround(static_cast<double>(inW) * outH / inH));
-  }
+  // scale down to fit within the maxWidth/maxHeight box (whichever caps bind),
+  // preserving aspect ratio; never upscale.
+  double scale = 1.0;
+  if (opts.maxHeight > 0)
+    scale = std::min(scale, static_cast<double>(opts.maxHeight) / inH);
+  if (opts.maxWidth > 0)
+    scale = std::min(scale, static_cast<double>(opts.maxWidth) / inW);
+  int outW = static_cast<int>(std::lround(inW * scale));
+  int outH = static_cast<int>(std::lround(inH * scale));
   outW &= ~1;
   outH &= ~1;
   if (outW < 2)

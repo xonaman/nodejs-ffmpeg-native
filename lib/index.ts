@@ -58,6 +58,7 @@ export async function transcode(
     return (await withConcurrency(() =>
       addon.transcode(input, {
         ...(options?.maxHeight !== undefined ? { maxHeight: options.maxHeight } : {}),
+        ...(options?.maxWidth !== undefined ? { maxWidth: options.maxWidth } : {}),
         ...(options?.videoBitrate !== undefined ? { videoBitrate: options.videoBitrate } : {}),
         ...(options?.audioBitrate !== undefined ? { audioBitrate: options.audioBitrate } : {}),
         ...(options?.faststart !== undefined ? { faststart: options.faststart } : {}),

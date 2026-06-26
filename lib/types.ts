@@ -6,6 +6,12 @@ export interface TranscodeOptions {
    */
   readonly maxHeight?: number;
   /**
+   * Cap the output width in pixels. Combined with `maxHeight`, the video is
+   * scaled down to fit within the box (aspect ratio preserved, never upscaled).
+   * Default: `0` (no width cap; width follows from `maxHeight`).
+   */
+  readonly maxWidth?: number;
+  /**
    * Target H.264 video bitrate in bits per second. When omitted, a bitrate is
    * derived from the output resolution and frame rate.
    */
@@ -28,6 +34,7 @@ export interface NativeAddon {
     input: Buffer | string,
     options: {
       maxHeight?: number;
+      maxWidth?: number;
       videoBitrate?: number;
       audioBitrate?: number;
       faststart?: boolean;

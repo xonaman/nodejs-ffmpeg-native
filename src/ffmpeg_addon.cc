@@ -90,6 +90,8 @@ static Napi::Value Transcode(const Napi::CallbackInfo &info) {
     Napi::Object options = info[1].As<Napi::Object>();
     if (options.Has("maxHeight"))
       opts.maxHeight = options.Get("maxHeight").As<Napi::Number>().Int32Value();
+    if (options.Has("maxWidth"))
+      opts.maxWidth = options.Get("maxWidth").As<Napi::Number>().Int32Value();
     if (options.Has("videoBitrate"))
       opts.videoBitrate = options.Get("videoBitrate").As<Napi::Number>().Int64Value();
     if (options.Has("audioBitrate"))

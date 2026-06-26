@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { createWriteStream, existsSync, mkdirSync, rmSync } from 'node:fs';
+import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -55,7 +56,11 @@ if (process.env.OPENH264_ARCH) makeVars.push(`ARCH=${process.env.OPENH264_ARCH}`
 if (process.env.OPENH264_OS) makeVars.push(`OS=${process.env.OPENH264_OS}`);
 
 console.log('Building OpenH264...');
-execFileSync('make', ['-j', ...makeVars], { stdio: 'inherit', cwd: srcDir });
+// bound parallelism to the core count (unbounded -j can exhaust process limits)
+execFileSync('make', ['-j' + availableParallelism(), ...makeVars], {
+  stdio: 'inherit',
+  cwd: srcDir,
+});
 
 console.log('Installing static library...');
 mkdirSync(join(depsDir, 'lib'), { recursive: true });

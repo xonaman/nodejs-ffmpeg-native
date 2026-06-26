@@ -21,7 +21,6 @@
       ],
       "cflags": [
         "-O2",
-        "-flto",
         "-ffunction-sections",
         "-fdata-sections"
       ],
@@ -41,10 +40,9 @@
               "CLANG_CXX_LANGUAGE_STANDARD": "c++17",
               "GCC_SYMBOLS_PRIVATE_EXTERN": "YES",
               "DEAD_CODE_STRIPPING": "YES",
-              "LLVM_LTO": "YES",
+              "LLVM_LTO": "NO",
               "OTHER_CPLUSPLUSFLAGS": [
                 "-O2",
-                "-flto",
                 "-ffunction-sections",
                 "-fdata-sections"
               ],
@@ -58,7 +56,6 @@
                 "-lz",
                 "-lbz2",
                 "-liconv",
-                "-flto",
                 "-Wl,-dead_strip",
                 "-Wl,-S",
                 "-framework CoreFoundation",
@@ -88,7 +85,6 @@
               "-lpthread",
               "-ldl",
               "-static-libstdc++",
-              "-flto",
               "-Wl,--gc-sections",
               "-Wl,-S"
             ]

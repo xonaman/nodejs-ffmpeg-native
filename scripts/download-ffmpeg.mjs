@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { createWriteStream, existsSync, mkdirSync, rmSync } from 'node:fs';
+import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -98,7 +99,9 @@ console.log('Configuring FFmpeg...');
 execFileSync('./configure', configureArgs, { stdio: 'inherit', cwd: srcDir });
 
 console.log('Building FFmpeg...');
-execFileSync('make', ['-j'], { stdio: 'inherit', cwd: srcDir });
+// bound parallelism to the core count; unbounded `make -j` exhausts the macOS
+// runner's process limit (posix_spawn: Resource temporarily unavailable).
+execFileSync('make', ['-j' + availableParallelism()], { stdio: 'inherit', cwd: srcDir });
 execFileSync('make', ['install'], { stdio: 'inherit', cwd: srcDir });
 
 rmSync(srcDir, { recursive: true, force: true });
