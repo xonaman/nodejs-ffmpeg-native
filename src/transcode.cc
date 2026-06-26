@@ -4,7 +4,10 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <string>
+#include <unistd.h>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -40,9 +43,8 @@ struct Ctx {
   AVFormatContext *ifmt = nullptr;
   AVIOContext *inAvio = nullptr;
   AVFormatContext *ofmt = nullptr;
-  AVIOContext *outAvio = nullptr;
   bool fileOut = false;
-  WriteBuffer *wb = nullptr;
+  std::string tempPath; // temp output file for buffer mode (faststart needs a real file)
   ReadBuffer rb;
 
   AVCodecContext *vdec = nullptr;
@@ -94,11 +96,8 @@ struct Ctx {
         avio_closep(&ofmt->pb);
       avformat_free_context(ofmt);
     }
-    if (outAvio) {
-      av_freep(&outAvio->buffer);
-      avio_context_free(&outAvio);
-    }
-    delete wb;
+    if (!tempPath.empty())
+      unlink(tempPath.c_str());
   }
 };
 
@@ -199,35 +198,39 @@ TranscodeResult RunTranscode(const uint8_t *inData, size_t inSize, const std::st
     outH = 2;
 
   // --- output format context ------------------------------------------------
-  ret = avformat_alloc_output_context2(&c.ofmt, nullptr, "mp4",
-                                       outPath.empty() ? nullptr : outPath.c_str());
+  // The MP4 +faststart pass relocates the moov atom by reopening the output URL,
+  // which is impossible for a custom in-memory AVIO. So always write to a real
+  // file — a temp file in buffer mode — and read it back afterwards.
+  const bool bufferMode = outPath.empty();
+  std::string writePath = outPath;
+  if (bufferMode) {
+    const char *td = getenv("TMPDIR");
+    std::string dir = (td && *td) ? td : "/tmp";
+    if (!dir.empty() && dir.back() == '/')
+      dir.pop_back();
+    std::string tmpl = dir + "/ffmpeg-native-XXXXXX";
+    std::vector<char> tbuf(tmpl.c_str(), tmpl.c_str() + tmpl.size() + 1);
+    int fd = mkstemp(tbuf.data());
+    if (fd < 0) {
+      result.error = makeError("OUTPUT", "could not create temp output file");
+      return result;
+    }
+    close(fd);
+    c.tempPath.assign(tbuf.data());
+    writePath = c.tempPath;
+  }
+
+  ret = avformat_alloc_output_context2(&c.ofmt, nullptr, "mp4", writePath.c_str());
   if (ret < 0 || !c.ofmt) {
     result.error = avError("OUTPUT", "could not create mp4 output", ret);
     return result;
   }
-  if (outPath.empty()) {
-    c.wb = new WriteBuffer();
-    auto *obuf = static_cast<unsigned char *>(av_malloc(kAvioBufferSize));
-    if (!obuf) {
-      result.error = makeError("OUTPUT", "could not allocate output IO buffer");
-      return result;
-    }
-    c.outAvio = avio_alloc_context(obuf, kAvioBufferSize, 1, c.wb, &WriteBuffer::read,
-                                   &WriteBuffer::write, &WriteBuffer::seek);
-    if (!c.outAvio) {
-      av_free(obuf);
-      result.error = makeError("OUTPUT", "could not allocate output IO context");
-      return result;
-    }
-    c.ofmt->pb = c.outAvio;
-  } else {
-    ret = avio_open(&c.ofmt->pb, outPath.c_str(), AVIO_FLAG_WRITE);
-    if (ret < 0) {
-      result.error = avError("OUTPUT", "could not open output file", ret);
-      return result;
-    }
-    c.fileOut = true;
+  ret = avio_open(&c.ofmt->pb, writePath.c_str(), AVIO_FLAG_WRITE);
+  if (ret < 0) {
+    result.error = avError("OUTPUT", "could not open output file", ret);
+    return result;
   }
+  c.fileOut = true;
 
   // --- video encoder (H.264 via OpenH264) ----------------------------------
   const AVCodec *vencCodec = avcodec_find_encoder_by_name("libopenh264");
@@ -624,9 +627,26 @@ TranscodeResult RunTranscode(const uint8_t *inData, size_t inSize, const std::st
     return result;
   }
 
-  if (outPath.empty()) {
-    avio_flush(c.ofmt->pb);
-    result.output = std::move(c.wb->data);
+  // close the output to flush all bytes before reading the buffer back
+  avio_closep(&c.ofmt->pb);
+  c.fileOut = false;
+
+  if (bufferMode) {
+    FILE *f = fopen(c.tempPath.c_str(), "rb");
+    if (!f) {
+      result.error = makeError("OUTPUT", "could not read transcoded output");
+      return result;
+    }
+    if (fseek(f, 0, SEEK_END) == 0) {
+      long sz = ftell(f);
+      rewind(f);
+      if (sz > 0) {
+        result.output.resize(static_cast<size_t>(sz));
+        size_t rd = fread(result.output.data(), 1, static_cast<size_t>(sz), f);
+        result.output.resize(rd);
+      }
+    }
+    fclose(f);
   }
   return result;
 }

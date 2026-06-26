@@ -86,7 +86,9 @@ const configureArgs = [
   '--disable-autodetect',
   '--disable-everything',
   ...components,
-  `--extra-cflags=-I${join(openh264Dir, 'include')}`,
+  // -fPIC is required so the static libs link into our shared .node (avoids
+  // "relocation R_X86_64_PC32 ... can not be used when making a shared object").
+  `--extra-cflags=-fPIC -I${join(openh264Dir, 'include')}`,
   `--extra-ldflags=-L${join(openh264Dir, 'lib')}`,
   '--pkg-config-flags=--static',
 ];
