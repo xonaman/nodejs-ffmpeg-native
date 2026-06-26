@@ -1,0 +1,176 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  prebuild:
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            arch: x64
+          - os: macos-latest
+            platform: darwin
+            arch: arm64
+          - os: macos-13
+            platform: darwin
+            arch: x64
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Install build dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y nasm pkg-config ffmpeg
+
+      - name: Install build dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install nasm pkg-config ffmpeg
+
+      - run: npm ci --ignore-scripts
+
+      - name: Build OpenH264 and FFmpeg
+        run: |
+          node scripts/download-openh264.mjs
+          node scripts/download-ffmpeg.mjs
+
+      - name: Build native addon
+        run: npx node-gyp rebuild
+
+      - name: Bundle (strip)
+        run: node scripts/bundle-lib.mjs
+
+      - name: Generate fixtures and test
+        run: |
+          node test/create-fixtures.mjs
+          npm test
+
+      - name: Create tarball
+        shell: bash
+        run: |
+          tar czf "ffmpeg-native-${{ github.ref_name }}-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz" \
+            build/Release/ffmpeg.node
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: prebuild-${{ matrix.platform }}-${{ matrix.arch }}
+          path: ffmpeg-native-*.tar.gz
+
+  prebuild-linux-cross:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            docker-platform: linux/arm64
+            image: node:22-bookworm
+          - arch: x64
+            platform-suffix: musl
+            docker-platform: linux/amd64
+            image: node:22-alpine
+          - arch: arm64
+            platform-suffix: musl
+            docker-platform: linux/arm64
+            image: node:22-alpine
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/setup-qemu-action@v4
+        with:
+          platforms: ${{ matrix.docker-platform }}
+
+      - name: Build in Docker
+        timeout-minutes: 180
+        run: |
+          docker run --rm --platform ${{ matrix.docker-platform }} \
+            -v "${{ github.workspace }}:/workspace" \
+            -w /workspace \
+            ${{ matrix.image }} \
+            sh -c "
+              if command -v apk > /dev/null; then
+                apk add --no-cache build-base nasm pkgconfig python3 ffmpeg bash
+              else
+                apt-get update && apt-get install -y build-essential nasm pkg-config python3 ffmpeg
+              fi &&
+              npm ci --ignore-scripts &&
+              node scripts/download-openh264.mjs &&
+              node scripts/download-ffmpeg.mjs &&
+              npx node-gyp rebuild &&
+              node scripts/bundle-lib.mjs &&
+              node test/create-fixtures.mjs &&
+              npm test
+            "
+
+      - name: Create tarball
+        run: |
+          suffix="${{ matrix.platform-suffix }}"
+          if [ -n "$suffix" ]; then
+            tar czf "ffmpeg-native-${{ github.ref_name }}-linux-${suffix}-${{ matrix.arch }}.tar.gz" \
+              build/Release/ffmpeg.node
+          else
+            tar czf "ffmpeg-native-${{ github.ref_name }}-linux-${{ matrix.arch }}.tar.gz" \
+              build/Release/ffmpeg.node
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: prebuild-linux-${{ matrix.platform-suffix && format('{0}-', matrix.platform-suffix) || '' }}${{ matrix.arch }}
+          path: ffmpeg-native-*.tar.gz
+
+  release:
+    needs: [prebuild, prebuild-linux-cross]
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci --ignore-scripts
+
+      # The GitHub release (with the prebuilt tarballs) must exist BEFORE npm
+      # publish: scripts/install.mjs fetches prebuilts from the release by
+      # version, so publishing first would make every install during the gap
+      # fall back to a from-source compile (or 404).
+      - name: Download all prebuild artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: prebuild-*
+          path: artifacts
+          merge-multiple: true
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: artifacts/*.tar.gz
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "${{ github.ref_name }}" artifacts/*.tar.gz --generate-notes
+
+      - name: Publish to npm
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

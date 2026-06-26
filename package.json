@@ -1,0 +1,98 @@
+{
+  "name": "ffmpeg-native",
+  "version": "0.1.0",
+  "description": "Native Node.js bindings for FFmpeg — transcode and normalize video to web-ready MP4",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "keywords": [
+    "ffmpeg",
+    "video",
+    "transcode",
+    "mp4",
+    "h264",
+    "aac",
+    "compress",
+    "normalize",
+    "faststart",
+    "native",
+    "node-addon",
+    "napi",
+    "libav",
+    "openh264"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "lib",
+    "scripts",
+    "binding.gyp",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xonaman/nodejs-ffmpeg-native.git"
+  },
+  "homepage": "https://github.com/xonaman/nodejs-ffmpeg-native#readme",
+  "bugs": {
+    "url": "https://github.com/xonaman/nodejs-ffmpeg-native/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "os": [
+    "darwin",
+    "linux"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "scripts": {
+    "install": "node scripts/install.mjs",
+    "build": "node-gyp rebuild && node scripts/bundle-lib.mjs",
+    "build:ts": "tsc",
+    "prepublishOnly": "tsc",
+    "download": "node scripts/download-openh264.mjs && node scripts/download-ffmpeg.mjs",
+    "test": "vitest run",
+    "lint": "eslint --fix .",
+    "lint:check": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky && tsc"
+  },
+  "lint-staged": {
+    "*.{ts,js,json,md,yaml,yml}": "prettier --write",
+    "*.{ts,js}": "eslint --max-warnings 0"
+  },
+  "dependencies": {
+    "node-addon-api": "^8.0.0",
+    "p-limit": "^7.3.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.5.0",
+    "eslint": "^10.1.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "node-gyp": "^11.0.0",
+    "prettier": "^3.8.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.57.2",
+    "vitest": "^4.1.2"
+  }
+}
