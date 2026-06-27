@@ -3,6 +3,10 @@
  * is a small, deliberately un-normalized clip so the transcoder has something
  * real to scale down and re-encode. Codecs that the local ffmpeg lacks are
  * skipped — the test suite skips any fixture that is missing.
+ *
+ * h264-1080p.mp4 is committed to the repo as a baseline so the real transcode
+ * path runs even without a system FFmpeg (e.g. on Windows CI). Existing fixtures
+ * are never regenerated, so the committed copy is always used as-is.
  */
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
