@@ -121,6 +121,8 @@
               "ws2_32.lib",
               "secur32.lib",
               "bcrypt.lib",
+              "crypt32.lib",
+              "ncrypt.lib",
               "mfplat.lib",
               "mfuuid.lib",
               "strmiids.lib",
