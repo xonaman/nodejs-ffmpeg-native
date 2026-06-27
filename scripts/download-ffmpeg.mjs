@@ -24,7 +24,9 @@ if (!/^\d+\.\d+(\.\d+)?$/.test(FFMPEG_VERSION)) {
 }
 
 if (process.platform === 'win32') {
-  console.error('FFmpeg source build is not supported on Windows in this package.');
+  console.error(
+    'On Windows, build FFmpeg via vcpkg: run "node scripts/download-ffmpeg-windows.mjs".',
+  );
   process.exit(1);
 }
 

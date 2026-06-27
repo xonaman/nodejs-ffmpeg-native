@@ -8,6 +8,7 @@ on:
 jobs:
   prebuild:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     permissions:
       contents: read
     strategy:
@@ -23,6 +24,9 @@ jobs:
           - os: macos-13
             platform: darwin
             arch: x64
+          - os: windows-2022
+            platform: win32
+            arch: x64
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -37,12 +41,24 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install nasm pkg-config ffmpeg
 
+      - name: Install ffmpeg for fixtures (Windows)
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        run: choco install ffmpeg --no-progress -y
+
       - run: npm ci --ignore-scripts
 
-      - name: Build OpenH264 and FFmpeg
+      - name: Build OpenH264 and FFmpeg (Unix)
+        if: runner.os != 'Windows'
         run: |
           node scripts/download-openh264.mjs
           node scripts/download-ffmpeg.mjs
+
+      - name: Build FFmpeg via vcpkg (Windows)
+        if: runner.os == 'Windows'
+        run: node scripts/download-ffmpeg-windows.mjs
+        env:
+          VCPKG_ROOT: C:\vcpkg
 
       - name: Build native addon
         run: npx node-gyp rebuild

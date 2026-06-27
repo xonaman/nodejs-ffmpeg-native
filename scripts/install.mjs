@@ -91,8 +91,13 @@ async function tryDownload() {
 
 async function buildFromSource() {
   console.log('Building from source...');
-  execSync('node scripts/download-openh264.mjs', { stdio: 'inherit', cwd: root });
-  execSync('node scripts/download-ffmpeg.mjs', { stdio: 'inherit', cwd: root });
+  if (process.platform === 'win32') {
+    // Windows links FFmpeg + OpenH264 from vcpkg (needs VCPKG_ROOT + a C++ toolchain).
+    execSync('node scripts/download-ffmpeg-windows.mjs', { stdio: 'inherit', cwd: root });
+  } else {
+    execSync('node scripts/download-openh264.mjs', { stdio: 'inherit', cwd: root });
+    execSync('node scripts/download-ffmpeg.mjs', { stdio: 'inherit', cwd: root });
+  }
   execSync('npx node-gyp rebuild', { stdio: 'inherit', cwd: root });
   execSync('node scripts/bundle-lib.mjs', { stdio: 'inherit', cwd: root });
 }

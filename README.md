@@ -1,7 +1,7 @@
 # ffmpeg-native
 
 [![Node.js](https://img.shields.io/node/v/ffmpeg-native)](https://nodejs.org)
-[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-blue)]()
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue)]()
 
 Native video transcoding for Node.js — powered by [FFmpeg](https://ffmpeg.org/)
 and [OpenH264](https://github.com/cisco/openh264). Built as a C++ addon with
@@ -57,10 +57,16 @@ Failures reject with a typed `FFmpegError` subclass carrying a `.code`:
 
 ## Supported platforms
 
-Prebuilt binaries: **macOS** (x64, arm64) and **Linux** glibc + musl/Alpine
-(x64, arm64). On other platforms `npm install` compiles OpenH264 and a minimal
-static FFmpeg from source (requires `nasm`, `pkg-config`, a C/C++ toolchain,
-and `make`). Windows is not currently supported.
+Prebuilt binaries: **macOS** (x64, arm64), **Linux** glibc + musl/Alpine
+(x64, arm64), and **Windows** (x64). On platforms without a prebuilt, `npm
+install` compiles from source:
+
+- **macOS / Linux** — build OpenH264 and a minimal static FFmpeg n7.1.1 (requires
+  `nasm`, `pkg-config`, a C/C++ toolchain, and `make`).
+- **Windows** — link FFmpeg + OpenH264 from [vcpkg](https://vcpkg.io) (requires
+  `VCPKG_ROOT` and the MSVC C++ build tools). The Windows build uses vcpkg's
+  stock FFmpeg (8.x, LGPL) rather than the source-built 7.1.1 — a newer,
+  functionally-superset codec set.
 
 ## How it works
 
@@ -73,6 +79,9 @@ matches the platform, it falls back to:
    OpenH264.
 3. `node-gyp rebuild` — compile the addon, statically linking everything into a
    single self-contained `ffmpeg.node`.
+
+On Windows the source fallback instead runs `scripts/download-ffmpeg-windows.mjs`
+(vcpkg) before `node-gyp rebuild`.
 
 ## License
 

@@ -14,7 +14,9 @@
       ],
       "defines": [
         "NAPI_VERSION=8",
-        "__STDC_CONSTANT_MACROS"
+        "__STDC_CONSTANT_MACROS",
+        "__STDC_LIMIT_MACROS",
+        "__STDC_FORMAT_MACROS"
       ],
       "cflags!": [
         "-fno-exceptions"
@@ -88,6 +90,49 @@
               "-Wl,-Bsymbolic",
               "-Wl,--gc-sections",
               "-Wl,-S"
+            ]
+          }
+        ],
+        [
+          "OS=='win'",
+          {
+            "defines": [
+              "_HAS_EXCEPTIONS=1",
+              "_CRT_SECURE_NO_WARNINGS"
+            ],
+            "msvs_settings": {
+              "VCCLCompilerTool": {
+                "ExceptionHandling": 1,
+                "Optimization": 2,
+                "RuntimeLibrary": 0,
+                "AdditionalOptions": [
+                  "/std:c++17"
+                ]
+              }
+            },
+            "libraries": [
+              "<(module_root_dir)/deps/ffmpeg/lib/avformat.lib",
+              "<(module_root_dir)/deps/ffmpeg/lib/avcodec.lib",
+              "<(module_root_dir)/deps/ffmpeg/lib/swscale.lib",
+              "<(module_root_dir)/deps/ffmpeg/lib/swresample.lib",
+              "<(module_root_dir)/deps/ffmpeg/lib/avutil.lib",
+              "<(module_root_dir)/deps/ffmpeg/lib/zlib.lib",
+              "<(module_root_dir)/deps/openh264/lib/openh264.lib",
+              "ws2_32.lib",
+              "secur32.lib",
+              "bcrypt.lib",
+              "mfplat.lib",
+              "mfuuid.lib",
+              "strmiids.lib",
+              "ole32.lib",
+              "oleaut32.lib",
+              "user32.lib",
+              "gdi32.lib",
+              "shlwapi.lib",
+              "dxgi.lib",
+              "d3d11.lib",
+              "d3d12.lib",
+              "legacy_stdio_definitions.lib"
             ]
           }
         ]

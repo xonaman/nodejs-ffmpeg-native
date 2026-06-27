@@ -7,7 +7,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -97,7 +99,7 @@ struct Ctx {
       avformat_free_context(ofmt);
     }
     if (!tempPath.empty())
-      unlink(tempPath.c_str());
+      std::remove(tempPath.c_str());
   }
 };
 
@@ -204,6 +206,17 @@ TranscodeResult RunTranscode(const uint8_t *inData, size_t inSize, const std::st
   const bool bufferMode = outPath.empty();
   std::string writePath = outPath;
   if (bufferMode) {
+#ifdef _WIN32
+    // _tempnam returns a unique name in %TMP% (falling back to P_tmpdir); the
+    // file itself is created by the avio_open below. mkstemp/unistd.h are POSIX.
+    char *t = _tempnam(nullptr, "ffn-");
+    if (!t) {
+      result.error = makeError("OUTPUT", "could not create temp output file");
+      return result;
+    }
+    c.tempPath.assign(t);
+    free(t);
+#else
     const char *td = getenv("TMPDIR");
     std::string dir = (td && *td) ? td : "/tmp";
     if (!dir.empty() && dir.back() == '/')
@@ -217,6 +230,7 @@ TranscodeResult RunTranscode(const uint8_t *inData, size_t inSize, const std::st
     }
     close(fd);
     c.tempPath.assign(tbuf.data());
+#endif
     writePath = c.tempPath;
   }
 

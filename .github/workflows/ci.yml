@@ -6,16 +6,26 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        node-version: [20, 22, 24]
+        # windows-2022 pins VS 2022; windows-latest moved to VS 2026 whose MSVC
+        # hits an internal compiler error (C1001) building node-addon-api.
+        os: [ubuntu-latest, macos-latest, windows-2022]
+        node-version: [22, 24]
     steps:
       - uses: actions/checkout@v6
 
@@ -31,14 +41,35 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install nasm pkg-config ffmpeg
 
+      - name: Install ffmpeg for fixtures (Windows)
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        run: choco install ffmpeg --no-progress -y
+
       - run: npm ci --ignore-scripts
       - run: npm run format:check
       - run: npm run lint:check
 
-      - name: Build OpenH264, FFmpeg, and native addon
+      - name: Cache native dependencies
+        uses: actions/cache@v4
+        with:
+          path: deps
+          key: deps-${{ runner.os }}-${{ hashFiles('scripts/download-openh264.mjs', 'scripts/download-ffmpeg.mjs', 'scripts/download-ffmpeg-windows.mjs') }}
+
+      - name: Build OpenH264 + FFmpeg (Unix)
+        if: runner.os != 'Windows'
         run: |
           node scripts/download-openh264.mjs
           node scripts/download-ffmpeg.mjs
+
+      - name: Build FFmpeg via vcpkg (Windows)
+        if: runner.os == 'Windows'
+        run: node scripts/download-ffmpeg-windows.mjs
+        env:
+          VCPKG_ROOT: C:\vcpkg
+
+      - name: Build native addon
+        run: |
           npx node-gyp rebuild
           node scripts/bundle-lib.mjs
 

@@ -9,4 +9,7 @@
 - H.264 encoding via OpenH264 (BSD); FFmpeg built without `--enable-gpl`, so the
   package is MIT-licensed.
 - Buffer and file-path input/output.
-- Prebuilt binaries for macOS (x64/arm64) and Linux glibc + musl (x64/arm64).
+- Prebuilt binaries for macOS (x64/arm64), Linux glibc + musl (x64/arm64), and
+  Windows (x64). The Windows build links FFmpeg + OpenH264 from vcpkg (stock
+  LGPL FFmpeg 8.x) rather than the source-built 7.1.1 used elsewhere.
+- Requires Node.js 22 or newer.

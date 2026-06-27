@@ -25,7 +25,9 @@ if (!/^\d+\.\d+\.\d+$/.test(OPENH264_VERSION)) {
 }
 
 if (process.platform === 'win32') {
-  console.error('OpenH264 source build is not supported on Windows in this package.');
+  console.error(
+    'On Windows, OpenH264 comes from vcpkg: run "node scripts/download-ffmpeg-windows.mjs".',
+  );
   process.exit(1);
 }
 
