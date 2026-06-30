@@ -67,7 +67,11 @@
     "build:ts": "tsc",
     "prepublishOnly": "tsc",
     "download": "node scripts/download-openh264.mjs && node scripts/download-ffmpeg.mjs",
+    "download:openh264": "node scripts/download-openh264.mjs",
+    "download:ffmpeg": "node scripts/download-ffmpeg.mjs",
+    "verify:checksums": "node scripts/verify-checksums.mjs",
     "test": "vitest run",
+    "typecheck": "tsc --noEmit",
     "lint": "eslint --fix .",
     "lint:check": "eslint .",
     "format": "prettier --write .",
@@ -75,8 +79,8 @@
     "prepare": "husky && tsc"
   },
   "lint-staged": {
-    "*.{ts,js,json,md,yaml,yml}": "prettier --write",
-    "*.{ts,js}": "eslint --max-warnings 0"
+    "*.{ts,js,mjs,cjs,json,md,yaml,yml}": "prettier --write",
+    "*.{ts,js,mjs,cjs}": "eslint --max-warnings 0"
   },
   "dependencies": {
     "node-addon-api": "^8.0.0",
@@ -88,6 +92,7 @@
     "eslint": "^10.1.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",
+    "globals": "^17.7.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "node-gyp": "^13.0.0",

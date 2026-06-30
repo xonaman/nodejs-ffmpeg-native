@@ -2,6 +2,7 @@ import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
 import prettierPlugin from 'eslint-plugin-prettier';
+import globals from 'globals';
 
 export default tseslint.config(
   { ignores: ['build/', 'deps/', 'dist/', 'node_modules/'] },
@@ -15,15 +16,9 @@ export default tseslint.config(
     },
   },
   {
-    files: ['scripts/**/*.mjs', 'test/**/*.mjs'],
+    files: ['scripts/**/*.{js,mjs,cjs}', 'test/**/*.{js,mjs,cjs}'],
     languageOptions: {
-      globals: {
-        Buffer: 'readonly',
-        console: 'readonly',
-        process: 'readonly',
-        fetch: 'readonly',
-        URL: 'readonly',
-      },
+      globals: globals.node,
     },
   },
   {

@@ -1,12 +1,11 @@
 import { execFileSync } from 'node:child_process';
-import { createWriteStream, existsSync, mkdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, renameSync, rmSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
-import { Readable } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
+import { downloadFile, extractTarball, loadManifest } from './lib/integrity.mjs';
 
-const FFMPEG_VERSION = '7.1.1';
-const BASE_URL = 'https://github.com/FFmpeg/FFmpeg/archive/refs/tags';
+const { ffmpeg: dep } = loadManifest();
+const FFMPEG_VERSION = dep.version;
 
 const root = join(import.meta.dirname, '..');
 const depsDir = join(root, 'deps', 'ffmpeg');
@@ -36,25 +35,35 @@ if (!existsSync(join(openh264Dir, 'lib', 'libopenh264.a'))) {
 }
 
 const tag = `n${FFMPEG_VERSION}`;
-const url = `${BASE_URL}/${tag}.tar.gz`;
 const tarball = join(root, `ffmpeg-${FFMPEG_VERSION}.tar.gz`);
 const srcDir = join(root, `FFmpeg-${tag}`);
 
+// step 1: download (origin- and SHA-256-pinned via native-deps.json)
 console.log(`Downloading FFmpeg ${FFMPEG_VERSION}...`);
-console.log(`URL: ${url}`);
-
-const response = await fetch(url, { redirect: 'follow' });
-if (!response.ok) {
-  console.error(`Download failed: ${response.status} ${response.statusText}`);
-  process.exit(1);
-}
+console.log(`URL: ${dep.url}`);
 
 mkdirSync(join(root, 'deps'), { recursive: true });
-await pipeline(Readable.fromWeb(response.body), createWriteStream(tarball));
+await downloadFile(dep.url, tarball, { expectedSha256: dep.sha256, allowedOrigin: dep.origin });
+console.log('Checksum verified. Extracting...');
+extractTarball(tarball, root);
+rmSync(tarball, { force: true });
 
-console.log('Extracting...');
-execFileSync('tar', ['-xzf', tarball, '-C', root], { stdio: 'inherit' });
-rmSync(tarball);
+// GitHub archive tarballs extract to `FFmpeg-{tag}` — find it if the name differs
+if (!existsSync(srcDir)) {
+  const candidates = readdirSync(root).filter(
+    (d) => d.toLowerCase().startsWith('ffmpeg-') && !d.endsWith('.tar.gz'),
+  );
+  const match = candidates.find((d) => d.includes(tag) || d.includes(FFMPEG_VERSION));
+  if (match) {
+    renameSync(join(root, match), srcDir);
+    console.log(`Renamed ${match} → FFmpeg-${tag}`);
+  } else {
+    console.error(
+      `Could not find extracted FFmpeg source directory. Found: ${candidates.join(', ')}`,
+    );
+    process.exit(1);
+  }
+}
 
 // help FFmpeg's configure find our static OpenH264 via pkg-config
 const pkgConfigDir = join(openh264Dir, 'lib', 'pkgconfig');

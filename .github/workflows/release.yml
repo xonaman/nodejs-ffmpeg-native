@@ -5,8 +5,11 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: read
+
 jobs:
-  prebuild:
+  test:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     permissions:
@@ -14,24 +17,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-latest
-            platform: linux
-            arch: x64
-          - os: macos-latest
-            platform: darwin
-            arch: arm64
-          - os: macos-13
-            platform: darwin
-            arch: x64
-          - os: windows-2022
-            platform: win32
-            arch: x64
+        # windows-2022 pins VS 2022; windows-latest moved to VS 2026 whose MSVC
+        # hits an internal compiler error (C1001) building node-addon-api.
+        os: [ubuntu-latest, macos-latest, windows-2022]
+        node-version: [22, 24]
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
-          node-version: 22
+          node-version: ${{ matrix.node-version }}
+          cache: npm
 
       - name: Install build dependencies (Ubuntu)
         if: runner.os == 'Linux'
@@ -47,6 +43,90 @@ jobs:
         run: choco install ffmpeg --no-progress -y
 
       - run: npm ci --ignore-scripts
+      - run: npm run format:check
+      - run: npm run lint:check
+      - run: npm run typecheck
+
+      - name: Cache native dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: deps
+          key: deps-${{ runner.os }}-${{ hashFiles('scripts/download-openh264.mjs', 'scripts/download-ffmpeg.mjs', 'scripts/download-ffmpeg-windows.mjs', 'scripts/native-deps.json') }}
+
+      - name: Build OpenH264 + FFmpeg (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          node scripts/download-openh264.mjs
+          node scripts/download-ffmpeg.mjs
+
+      - name: Build FFmpeg via vcpkg (Windows)
+        if: runner.os == 'Windows'
+        run: node scripts/download-ffmpeg-windows.mjs
+        env:
+          VCPKG_ROOT: C:\vcpkg
+
+      - name: Build native addon
+        run: |
+          npx node-gyp rebuild
+          node scripts/bundle-lib.mjs
+
+      - name: Generate fixtures
+        run: node test/create-fixtures.mjs
+
+      - run: npm test
+
+  prebuild:
+    needs: test
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            arch: x64
+          - os: macos-latest
+            platform: darwin
+            arch: arm64
+          # macos-15-intel is GitHub's supported native-x64 Intel runner (the
+          # old macos-13 label is being retired). Building darwin-x64 on real
+          # Intel hardware avoids cross-compiling FFmpeg's asm from source.
+          - os: macos-15-intel
+            platform: darwin
+            arch: x64
+          - os: windows-2022
+            platform: win32
+            arch: x64
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install build dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y nasm pkg-config ffmpeg
+
+      - name: Install build dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install nasm pkg-config ffmpeg
+
+      - name: Install ffmpeg for fixtures (Windows)
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        run: choco install ffmpeg --no-progress -y
+
+      - run: npm ci --ignore-scripts
+
+      - name: Cache native dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: deps
+          key: deps-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('scripts/download-openh264.mjs', 'scripts/download-ffmpeg.mjs', 'scripts/download-ffmpeg-windows.mjs', 'scripts/native-deps.json') }}
 
       - name: Build OpenH264 and FFmpeg (Unix)
         if: runner.os != 'Windows'
@@ -78,12 +158,13 @@ jobs:
             build/Release/ffmpeg.node
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: prebuild-${{ matrix.platform }}-${{ matrix.arch }}
           path: ffmpeg-native-*.tar.gz
 
   prebuild-linux-cross:
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -103,11 +184,17 @@ jobs:
             docker-platform: linux/arm64
             image: node:22-alpine
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4
         with:
           platforms: ${{ matrix.docker-platform }}
+
+      - name: Cache native dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: deps
+          key: deps-linux-${{ matrix.platform-suffix || 'glibc' }}-${{ matrix.arch }}-${{ hashFiles('scripts/download-openh264.mjs', 'scripts/download-ffmpeg.mjs', 'scripts/download-ffmpeg-windows.mjs', 'scripts/native-deps.json') }}
 
       - name: Build in Docker
         timeout-minutes: 180
@@ -143,7 +230,7 @@ jobs:
           fi
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: prebuild-linux-${{ matrix.platform-suffix && format('{0}-', matrix.platform-suffix) || '' }}${{ matrix.arch }}
           path: ffmpeg-native-*.tar.gz
@@ -151,36 +238,38 @@ jobs:
   release:
     needs: [prebuild, prebuild-linux-cross]
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment: npm
     permissions:
       contents: write
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
+          cache: npm
 
       - run: npm ci --ignore-scripts
 
-      # The GitHub release (with the prebuilt tarballs) must exist BEFORE npm
-      # publish: scripts/install.mjs fetches prebuilts from the release by
-      # version, so publishing first would make every install during the gap
-      # fall back to a from-source compile (or 404).
       - name: Download all prebuild artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: prebuild-*
           path: artifacts
           merge-multiple: true
 
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v4
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4
         with:
           subject-path: artifacts/*.tar.gz
 
+      # The GitHub release (with the prebuilt tarballs) must exist BEFORE npm
+      # publish: scripts/install.mjs fetches prebuilts from the release by
+      # version, so publishing first would make every install during the gap
+      # fall back to a from-source compile (or 404).
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

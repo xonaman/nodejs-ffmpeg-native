@@ -1,14 +1,13 @@
 import { execFileSync } from 'node:child_process';
-import { createWriteStream, existsSync, mkdirSync, rmSync } from 'node:fs';
+import { mkdirSync, existsSync, rmSync, readdirSync, renameSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
-import { Readable } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
+import { downloadFile, extractTarball, loadManifest } from './lib/integrity.mjs';
 
 // OpenH264 is BSD-2-Clause, so linking it keeps this package permissively
 // licensed (unlike GPL libx264). It builds with a plain Makefile (no configure).
-const OPENH264_VERSION = process.env.OPENH264_VERSION || '2.4.1';
-const BASE_URL = 'https://github.com/cisco/openh264/archive/refs/tags';
+const { openh264: dep } = loadManifest();
+const OPENH264_VERSION = dep.version;
 
 const root = join(import.meta.dirname, '..');
 const depsDir = join(root, 'deps', 'openh264');
@@ -31,25 +30,35 @@ if (process.platform === 'win32') {
   process.exit(1);
 }
 
-const url = `${BASE_URL}/v${OPENH264_VERSION}.tar.gz`;
 const tarball = join(root, `openh264-${OPENH264_VERSION}.tar.gz`);
 const srcDir = join(root, `openh264-${OPENH264_VERSION}`);
 
+// step 1: download (origin- and SHA-256-pinned via native-deps.json)
 console.log(`Downloading OpenH264 ${OPENH264_VERSION}...`);
-console.log(`URL: ${url}`);
-
-const response = await fetch(url, { redirect: 'follow' });
-if (!response.ok) {
-  console.error(`Download failed: ${response.status} ${response.statusText}`);
-  process.exit(1);
-}
+console.log(`URL: ${dep.url}`);
 
 mkdirSync(join(root, 'deps'), { recursive: true });
-await pipeline(Readable.fromWeb(response.body), createWriteStream(tarball));
+await downloadFile(dep.url, tarball, { expectedSha256: dep.sha256, allowedOrigin: dep.origin });
+console.log('Checksum verified. Extracting...');
+extractTarball(tarball, root);
+rmSync(tarball, { force: true });
 
-console.log('Extracting...');
-execFileSync('tar', ['-xzf', tarball, '-C', root], { stdio: 'inherit' });
-rmSync(tarball);
+// GitHub archive tarballs extract to `openh264-{tag}` — find it if the name differs
+if (!existsSync(srcDir)) {
+  const candidates = readdirSync(root).filter(
+    (d) => d.startsWith('openh264-') && !d.endsWith('.tar.gz'),
+  );
+  const match = candidates.find((d) => d.includes(OPENH264_VERSION));
+  if (match) {
+    renameSync(join(root, match), srcDir);
+    console.log(`Renamed ${match} → openh264-${OPENH264_VERSION}`);
+  } else {
+    console.error(
+      `Could not find extracted OpenH264 source directory. Found: ${candidates.join(', ')}`,
+    );
+    process.exit(1);
+  }
+}
 
 // OpenH264's Makefile auto-detects ARCH/OS from uname; allow overrides for
 // cross-compilation (e.g. ARCH=x86_64 when building on an arm64 host).

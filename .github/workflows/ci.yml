@@ -24,14 +24,17 @@ jobs:
       matrix:
         # windows-2022 pins VS 2022; windows-latest moved to VS 2026 whose MSVC
         # hits an internal compiler error (C1001) building node-addon-api.
+        # The windows-canary workflow re-tests windows-latest weekly; drop this
+        # pin once it goes green.
         os: [ubuntu-latest, macos-latest, windows-2022]
         node-version: [22, 24]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: ${{ matrix.node-version }}
+          cache: npm
 
       - name: Install build dependencies (Ubuntu)
         if: runner.os == 'Linux'
@@ -49,12 +52,13 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run format:check
       - run: npm run lint:check
+      - run: npm run typecheck
 
       - name: Cache native dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: deps
-          key: deps-${{ runner.os }}-${{ hashFiles('scripts/download-openh264.mjs', 'scripts/download-ffmpeg.mjs', 'scripts/download-ffmpeg-windows.mjs') }}
+          key: deps-${{ runner.os }}-${{ hashFiles('scripts/download-openh264.mjs', 'scripts/download-ffmpeg.mjs', 'scripts/download-ffmpeg-windows.mjs', 'scripts/native-deps.json') }}
 
       - name: Build OpenH264 + FFmpeg (Unix)
         if: runner.os != 'Windows'
@@ -72,8 +76,6 @@ jobs:
         run: |
           npx node-gyp rebuild
           node scripts/bundle-lib.mjs
-
-      - run: npx tsc --noEmit
 
       - name: Generate fixtures
         run: node test/create-fixtures.mjs

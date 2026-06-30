@@ -1,0 +1,16 @@
+{
+  "ffmpeg": {
+    "version": "7.1.1",
+    "origin": "https://github.com",
+    "url": "https://github.com/FFmpeg/FFmpeg/archive/refs/tags/n7.1.1.tar.gz",
+    "sha256": "f117507dc501f2a6c11f9241d8d0c3213846cfad91764361af37befd6b6c523d",
+    "checksumSource": "self-computed from the GitHub git-archive tarball of tag n7.1.1 (the macOS/Linux source build uses the version-tagged GitHub archive; Windows builds FFmpeg via vcpkg instead and does not use this tarball)"
+  },
+  "openh264": {
+    "version": "2.4.1",
+    "origin": "https://github.com",
+    "url": "https://github.com/cisco/openh264/archive/refs/tags/v2.4.1.tar.gz",
+    "sha256": "8ffbe944e74043d0d3fb53d4a2a14c94de71f58dbea6a06d0dc92369542958ea",
+    "checksumSource": "self-computed from the GitHub archive tarball (Cisco publishes no separate release asset or checksum for OpenH264); matches the value pinned by other distributors"
+  }
+}
