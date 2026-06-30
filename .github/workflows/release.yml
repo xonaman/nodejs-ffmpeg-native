@@ -275,7 +275,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release create "${{ github.ref_name }}" artifacts/*.tar.gz --generate-notes
 
+      # Publishes tokenlessly via OIDC trusted publishing — no NPM_TOKEN. Requires
+      # a trusted publisher configured on npmjs.com (package Settings -> Trusted
+      # Publisher) pointing at xonaman/nodejs-ffmpeg-native, workflow release.yml,
+      # environment npm. The first publish is done locally; once the trusted
+      # publisher is configured, tag pushes publish from here.
       - name: Publish to npm
-        run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance

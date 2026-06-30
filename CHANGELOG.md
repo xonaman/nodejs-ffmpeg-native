@@ -35,5 +35,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - Hardened CI/CD: pinned all GitHub Actions to commit SHAs, added npm and
   native-dependency caching, and gated the release workflow behind the
   format/lint/typecheck/test suite (previously it published without those checks).
+- Publish tokenlessly via npm OIDC trusted publishing (`npm publish
+  --provenance`, no `NPM_TOKEN`).
 - Added a weekly `windows-latest` canary job that re-tests the `windows-2022`
   pin so it can be dropped once VS 2026's MSVC builds the addon again.
