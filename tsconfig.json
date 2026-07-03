@@ -3,6 +3,9 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    // TS 6 no longer auto-includes ambient @types packages under modern module
+    // resolution; declare node explicitly so process/Buffer/node: imports resolve
+    "types": ["node"],
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
