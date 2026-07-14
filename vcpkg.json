@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "ffmpeg-native",
+  "description": "Windows build dependencies for ffmpeg-native. Pinned via builtin-baseline so the FFmpeg version is reproducible instead of floating with the runner's vcpkg.",
+  "builtin-baseline": "cd61e1e26a038e82d6550a3ebbe0fbbfe7da78e3",
+  "dependencies": [
+    {
+      "name": "ffmpeg",
+      "default-features": false,
+      "features": ["avcodec", "avformat", "swresample", "swscale", "openh264", "zlib"]
+    }
+  ]
+}

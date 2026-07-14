@@ -3,6 +3,7 @@ node_modules/
 build/
 deps/
 dist/
+vcpkg_installed/
 # stale local extraction of the OpenH264 source tree (the build populates deps/ instead)
 /openh264-*/
 *.tgz
