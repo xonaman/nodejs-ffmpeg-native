@@ -7,6 +7,10 @@
  * newer FFmpeg (8.x) with a larger but functionally-superset codec set. It stays
  * LGPL — no gpl/nonfree features — with H.264 encode via OpenH264 (BSD), exactly
  * like the other platforms.
+ *
+ * The port version + feature set are pinned in vcpkg.json (manifest mode with a
+ * builtin-baseline), so the resulting FFmpeg is reproducible rather than
+ * floating with whatever baseline the runner's vcpkg happens to ship.
  */
 import { execFileSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
@@ -36,14 +40,27 @@ if (!existsSync(vcpkgExe)) {
 }
 
 // LGPL build: avcodec/avformat/avutil/swscale/swresample + the OpenH264 (BSD)
-// H.264 encoder + zlib (png/mov). `core` drops the avdevice/avfilter defaults we
-// never use; no gpl/nonfree features keeps it LGPL like the source builds.
-const pkg = `ffmpeg[core,avcodec,avformat,swresample,swscale,openh264,zlib]:${triplet}`;
+// H.264 encoder + zlib (png/mov). The feature set (with default features off, so
+// the avdevice/avfilter defaults we never use are dropped) and the pinned
+// version live in vcpkg.json; no gpl/nonfree features keeps it LGPL like the
+// source builds. Manifest mode installs into ./vcpkg_installed instead of the
+// vcpkg root's shared tree.
+const installRoot = join(root, 'vcpkg_installed');
 
-console.log(`Installing ${pkg} via vcpkg...`);
-execFileSync(vcpkgExe, ['install', pkg, '--clean-after-build'], { stdio: 'inherit' });
+console.log(`Installing FFmpeg via vcpkg (manifest mode, triplet ${triplet})...`);
+execFileSync(
+  vcpkgExe,
+  [
+    'install',
+    `--triplet=${triplet}`,
+    `--x-manifest-root=${root}`,
+    `--x-install-root=${installRoot}`,
+    '--clean-after-build',
+  ],
+  { stdio: 'inherit', cwd: root },
+);
 
-const installed = join(vcpkgRoot, 'installed', triplet);
+const installed = join(installRoot, triplet);
 const libSrc = join(installed, 'lib');
 const incSrc = join(installed, 'include');
 if (!existsSync(libSrc)) {
