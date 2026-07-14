@@ -3,6 +3,8 @@ node_modules/
 build/
 deps/
 dist/
+# stale local extraction of the OpenH264 source tree (the build populates deps/ instead)
+/openh264-*/
 *.tgz
 *.tar.gz
 compile_commands.json
