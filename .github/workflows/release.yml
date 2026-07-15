@@ -165,30 +165,31 @@ jobs:
 
   prebuild-linux-cross:
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
         include:
+          # arm64 builds on native arm64 runners — no QEMU, so no emulation SIGILL
           - arch: arm64
+            runner: ubuntu-24.04-arm
             docker-platform: linux/arm64
             image: node:22-bookworm
-          - arch: x64
-            platform-suffix: musl
-            docker-platform: linux/amd64
-            image: node:22-alpine
           - arch: arm64
             platform-suffix: musl
+            runner: ubuntu-24.04-arm
             docker-platform: linux/arm64
+            image: node:22-alpine
+          # x64 musl is native on the x64 runner
+          - arch: x64
+            platform-suffix: musl
+            runner: ubuntu-latest
+            docker-platform: linux/amd64
             image: node:22-alpine
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-
-      - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4
-        with:
-          platforms: ${{ matrix.docker-platform }}
 
       - name: Cache native dependencies
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -199,24 +200,35 @@ jobs:
       - name: Build in Docker
         timeout-minutes: 180
         run: |
-          docker run --rm --platform ${{ matrix.docker-platform }} \
-            -v "${{ github.workspace }}:/workspace" \
-            -w /workspace \
-            ${{ matrix.image }} \
-            sh -c "
-              if command -v apk > /dev/null; then
-                apk add --no-cache build-base nasm pkgconfig python3 ffmpeg bash
-              else
-                apt-get update && apt-get install -y build-essential nasm pkg-config python3 ffmpeg
-              fi &&
-              npm ci --ignore-scripts &&
-              node scripts/download-openh264.mjs &&
-              node scripts/download-ffmpeg.mjs &&
-              npx node-gyp rebuild &&
-              node scripts/bundle-lib.mjs &&
-              node test/create-fixtures.mjs &&
-              npm test
-            "
+          run_build() {
+            docker run --rm --platform ${{ matrix.docker-platform }} \
+              -v "${{ github.workspace }}:/workspace" \
+              -w /workspace \
+              ${{ matrix.image }} \
+              sh -c '
+                if command -v apk > /dev/null; then
+                  apk add --no-cache build-base nasm pkgconfig python3 ffmpeg bash
+                else
+                  apt-get update && apt-get install -y build-essential nasm pkg-config python3 ffmpeg
+                fi &&
+                npm ci --ignore-scripts &&
+                node scripts/download-openh264.mjs &&
+                node scripts/download-ffmpeg.mjs &&
+                npx node-gyp rebuild &&
+                node scripts/bundle-lib.mjs &&
+                node test/create-fixtures.mjs &&
+                npm test
+              '
+          }
+          for attempt in 1 2 3; do
+            echo "::group::Build attempt $attempt"
+            if run_build; then echo "::endgroup::"; exit 0; fi
+            echo "::endgroup::"
+            echo "Build attempt $attempt failed (e.g. transient QEMU SIGILL); retrying in 15s" >&2
+            sleep 15
+          done
+          echo "All build attempts failed" >&2
+          exit 1
 
       - name: Create tarball
         run: |
