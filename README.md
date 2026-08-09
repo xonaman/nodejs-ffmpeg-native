@@ -1,7 +1,7 @@
 # ffmpeg-native
 
 [![Node.js](https://img.shields.io/node/v/ffmpeg-native)](https://nodejs.org)
-[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue)]()
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue)](<>)
 
 Native video transcoding for Node.js — powered by [FFmpeg](https://ffmpeg.org/)
 and [OpenH264](https://github.com/cisco/openh264). Built as a C++ addon with
